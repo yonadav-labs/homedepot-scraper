@@ -1,0 +1,51 @@
+{% load humanize %}
+
+<html>
+	<head>
+		<title>Export products</title>
+		<link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+	</head>
+	<body>
+		<div class="container">
+		<div class="page-header">
+		  	<h1>Export Homedepot Products</h1>
+		</div>		
+		<form method="POST" action="/">
+			{% csrf_token %}
+			<div class="row" style="margin-top: 30px;">
+				<h4>- Columns</h4>
+			</div>
+			<div class="row">
+				<div class="col-md-3">
+				{% for item in fields %}
+					{% if forloop.counter0|divisibleby:5 and forloop.counter0 %}
+						</div>
+						<div class="col-md-3">
+					{% endif %}
+				  	<div class="checkbox">
+					<label><input type="checkbox" name="props[]" value="{{ item }}" checked="checked">{{ item|title }}</label>
+					</div>
+				{% endfor %}
+				</div>
+			</div>
+			<hr>
+			<div class="row">
+				<h4>- Product IDs</h4>
+				<div style="margin:12px;"><small>Put IDs to export.<br> To export all products, leave empty.</small></div>
+				<div class="col-md-8">
+					<div class="form-group">
+						<textarea class="form-control" name="ids" cols="80" rows="15">{{ ids }}</textarea>
+					</div>					
+				</div>
+			</div>
+<!-- 			<div class="checkbox">
+				<label><input type="checkbox" name="new_products">Only New products</label>
+			</div>
+ -->			<hr>
+			<input type="submit" class="btn btn-success" value="Export">
+			<a href="/admin/product/product/" class="btn btn-default">See Product List</a>
+		</form>
+		</div>
+	</body>
+</html>
