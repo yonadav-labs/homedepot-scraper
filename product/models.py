@@ -48,6 +48,9 @@ class Category(models.Model):
                 r.extend(_r)
         return r
 
+    class Meta:
+        verbose_name_plural = "categories"
+
 MODE = (
     (1, 'Category'),
     (2, 'Products')
@@ -96,7 +99,7 @@ class ScrapyTask(models.Model):
         self.update()
 
     def run_scraper(self):
-        path = settings.BASE_DIR + '/costco_scraper/celery_crawler.py'
+        path = settings.BASE_DIR + '/homedepot_scraper/celery_crawler.py'
         subprocess.Popen(["python", 
                           path, 
                           str(self.pk)])
