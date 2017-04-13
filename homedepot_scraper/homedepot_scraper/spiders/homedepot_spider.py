@@ -48,7 +48,7 @@ class HomedepotSpider(scrapy.Spider):
     def start_requests(self):
         cate_requests = []
         for item in self.categories:
-            request = scrapy.Request('http://www.homedepot.com{}'+item,
+            request = scrapy.Request('http://www.homedepot.com'+item,
                                      callback=self.parse)
             request.meta['category'] = item
             # request.meta['proxy'] = 'http://'+random.choice(self.proxy_pool)
