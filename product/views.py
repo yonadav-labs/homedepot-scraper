@@ -21,22 +21,23 @@ from .models import *
 @login_required(login_url='/admin/login/')
 def init_category(request):
     ALL_CATEGORIES = {
-        'electronics': 'Electronics',
-        'computers': 'Computers',
-        'appliances': 'Appliances',
-        'furniture': 'Furniture & Mattresses',
-        'auto-tires': 'Tires & Auto',
-        'holiday-gifts': 'Floral, Gifts & Tickets',
-        'jewelry': 'Jewelry & Watches',
-        'patio-lawn-garden': 'Patio, Lawn & Garden',
-        'hardware': 'Home Improvement',
-        'home-and-decor': 'Home & Kitchen',
-        'office-products': 'Office Products',
-        'clothing': 'Clothing & Luggage',
-        'health-beauty': 'Health & Beauty',
-        'baby-kids': 'Baby, Kids & Toys',
-        'grocery-household': 'Grocery, Household & Pet',
-        'sports-fitness': 'Sports & Fitness'  
+        '/b/Appliances/N-5yc1vZbv1w': 'Appliances',
+        '/b/Bath/N-5yc1vZbzb3': 'Bath & Faucets',
+        '/b/Decor/N-5yc1vZas6p': 'Blinds & Decor',
+        '/b/Building-Materials/N-5yc1vZaqns': 'Building Materials',
+        '/b/Doors-Windows/N-5yc1vZaqih': 'Doors & Windows',
+        '/b/Electrical/N-5yc1vZarcd': 'Electrical',
+        '/b/Flooring/N-5yc1vZaq7r': 'Flooring & Area Rugs',
+        '/b/Tools-Hardware-Hardware/N-5yc1vZc21m': 'Hardware',
+        '/b/Heating-Venting-Cooling/N-5yc1vZc4k8': 'Heating & Cooling',
+        '/b/Kitchen/N-5yc1vZar4i': 'Kitchen',
+        '/b/Outdoors-Garden-Center/N-5yc1vZbx6k': 'Lawn & Garden',
+        '/b/Lighting-Ceiling-Fans/N-5yc1vZbvn5': 'Lighting & Ceiling Fans',
+        '/b/Outdoors/N-5yc1vZbx82': 'Outdoor Living',
+        '/b/Paint/N-5yc1vZar2d': 'Paint',
+        '/b/Plumbing/N-5yc1vZbqew': 'Plumbing',
+        '/b/Storage-Organization/N-5yc1vZas7e': 'Storage & Organization',
+        '/b/Tools-Hardware/N-5yc1vZc1xy': 'Tools'
     }
 
     create_category(None, '/', 'All')
@@ -49,14 +50,14 @@ def init_category(request):
 @login_required(login_url='/admin/login/')
 def export_products(request):
     if request.method == "POST":
-        product_ids = request.POST.get('ids').strip().split(',')
+        product_ids = request.POST.get('ids').strip()
         result_csv_fields = request.POST.getlist('props[]')
         path = datetime.datetime.now().strftime("/tmp/.homedepot_products_%Y_%m_%d_%H_%M_%S.csv")
 
-        if product_ids == [u'']:
+        if product_ids == u'':
             queryset = Product.objects.all()
         else:
-            queryset = Product.objects.filter(id__in=product_ids)
+            queryset = Product.objects.filter(id__in=get_ids(product_ids))
 
         write_report(queryset, path, result_csv_fields)
         

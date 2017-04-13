@@ -21,12 +21,12 @@ class HomedepotSpider(scrapy.Spider):
 
     custom_settings = {
         'USER_AGENT': 'homedepot_scraper (+http://www.yourdomain.com)',
-        'DOWNLOAD_DELAY': 1,
-        'AUTOTHROTTLE_ENABLED': True,
-        'AUTOTHROTTLE_START_DELAY': 3,
-        'AUTOTHROTTLE_MAX_DELAY': 60,
-        'AUTOTHROTTLE_TARGET_CONCURRENCY': 1.0,
-        'AUTOTHROTTLE_DEBUG': False
+        # 'DOWNLOAD_DELAY': 1,
+        # 'AUTOTHROTTLE_ENABLED': True,
+        # 'AUTOTHROTTLE_START_DELAY': 3,
+        # 'AUTOTHROTTLE_MAX_DELAY': 60,
+        # 'AUTOTHROTTLE_TARGET_CONCURRENCY': 1.0,
+        # 'AUTOTHROTTLE_DEBUG': False
     }
 
     def __init__(self, task_id):
@@ -48,7 +48,7 @@ class HomedepotSpider(scrapy.Spider):
     def start_requests(self):
         cate_requests = []
         for item in self.categories:
-            request = scrapy.Request('https://www.homedepot.com/{}.html'.format(item),
+            request = scrapy.Request('http://www.homedepot.com{}'+item,
                                      callback=self.parse)
             request.meta['category'] = item
             # request.meta['proxy'] = 'http://'+random.choice(self.proxy_pool)
@@ -58,47 +58,55 @@ class HomedepotSpider(scrapy.Spider):
 
     def closed(self, reason):
         self.update_run_time()
-        # export script
-        self.store_report()
+        # self.store_report()
 
     def parse(self, response):
-        products = response.css('div.product')
-        cates_url = response.css('div.categoryclist div.col-md-3 a::attr(href)').extract()
-        cates_title = response.css('div.categoryclist h3.category-tile-title::text').extract()
-
+        products = response.css('div.pod-plp__container div.pod-inner')
+        cates_url = response.css('ul.activeLevel li a::attr(href)').extract() or \
+                      response.css('ul.list li.list__item--padding-none a::attr(href)').extract()        
+        cates_title = response.css('ul.activeLevel li a::text').extract() or \
+                        response.css('ul.list li.list__item--padding-none a::text').extract()
+ 
         if products:
-            for product in products:
-                detail = product.css('a.thumbnail::attr(href)').extract_first()
+            pass
+            # for product in products:
+            #     detail = product.css('a.thumbnail::attr(href)').extract_first()
 
-                if detail:
-                    url_id = self.get_url_id(detail)
+            #     if detail:
+            #         url_id = self.get_url_id(detail)
 
-                    if self.task.mode == 1 or self.task.mode == 2 and str(url_id) in self.products:
-                        price = product.css('div.price::text').extract_first()
-                        rating = product.xpath(".//meta[@itemprop='ratingValue']/@content").extract_first()
-                        reviewCount = product.xpath(".//meta[@itemprop='reviewCount']/@content").extract_first()
-                        promo = product.css('p.promo::text').extract_first()
-                        category = response.url[23:-5]
+            #         if self.task.mode == 1 or self.task.mode == 2 and str(url_id) in self.products:
+            #             price = product.css('div.price::text').extract_first()
+            #             rating = product.xpath(".//meta[@itemprop='ratingValue']/@content").extract_first()
+            #             reviewCount = product.xpath(".//meta[@itemprop='reviewCount']/@content").extract_first()
+            #             promo = product.css('p.promo::text').extract_first()
+            #             category = response.url[23:-5]
 
-                        request = scrapy.Request(detail, callback=self.detail)
-                        request.meta['price'] = price
-                        request.meta['rating'] = rating
-                        request.meta['promo'] = promo
-                        request.meta['category'] = category
-                        request.meta['reviewCount'] = reviewCount
-                        yield request
+            #             request = scrapy.Request(detail, callback=self.detail)
+            #             request.meta['price'] = price
+            #             request.meta['rating'] = rating
+            #             request.meta['promo'] = promo
+            #             request.meta['category'] = category
+            #             request.meta['reviewCount'] = reviewCount
+            #             yield request
         elif cates_url:
             parent = response.meta['category']
             for item in zip(cates_url, cates_title):
-                try:
-                    Category.objects.create(parent_id=parent, url=item[0][23:-5], title=item[1])
-                except Exception, e:
-                    print str(e)
+                url = item[0].split('?')[0]
+                if self.is_category(url):
+                    cate_ = '/{}/'.format(url.split('/')[2])
+                    if not Category.objects.filter(url__contains=cate_):
+                        Category.objects.create(parent_id=parent, url=url, title=item[1])
 
-                request = scrapy.Request(item[0], callback=self.parse)
-                request.meta['category'] = item[0][23:-5]
-                # request.meta['proxy'] = 'http://'+random.choice(self.proxy_pool)
-                yield request
+                        request = scrapy.Request('http://www.homedepot.com'+url, callback=self.parse)
+                        request.meta['category'] = url
+                        # request.meta['proxy'] = 'http://'+random.choice(self.proxy_pool)
+                        yield request
+
+    def is_category(self, cate_str):
+        if not cate_str.startswith('/b/'):
+            return False        
+        return cate_str.count("/")
 
     def get_url_id(self, url):
         url_id = re.search(r'.*\.product\.(\d+?)\.html', url)
