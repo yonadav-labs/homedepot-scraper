@@ -45,22 +45,34 @@ class HomedepotSpider(scrapy.Spider):
             self.products = [item.url for item in qs]
             self.categories = [item.category.url for item in qs]
 
-    def start_requests(self):
-        cate_requests = []
-        for item in self.categories:
-            request = scrapy.Request('http://www.homedepot.com'+item,
-                                     callback=self.parse)
-            request.meta['category'] = item
-            # request.meta['proxy'] = 'http://'+random.choice(self.proxy_pool)
-            cate_requests.append(request)
-        return cate_requests
-    
+    def start_requests(self):    
+        if self.task.mode == 1:
+            cate_requests = []
+            for item in self.categories:
+                request = scrapy.Request('http://www.homedepot.com'+item,
+                                         callback=self.parse)
+                request.meta['category'] = item
+                # request.meta['proxy'] = 'http://'+random.choice(self.proxy_pool)
+                cate_requests.append(request)
+            return cate_requests
+        else:
+            product_requests = []
+            for product in self.products:
+                request = scrapy.Request(product.url, 
+                                         callback=self.detail)
+                request.meta['model_num'] = product.special
+                request.meta['category'] = product.category_id
+                product_requests.append(request)
+            return product_requests    
 
     def closed(self, reason):
         self.update_run_time()
         # self.store_report()
 
     def parse(self, response):
+        if self.stop_scrapy():
+            return
+
         products = response.css('div.pod-plp__container div.pod-inner')
         cates_url = response.css('ul.activeLevel li a::attr(href)').extract() or \
                       response.css('ul.list li.list__item--padding-none a::attr(href)').extract()        
@@ -68,27 +80,28 @@ class HomedepotSpider(scrapy.Spider):
                         response.css('ul.list li.list__item--padding-none a::text').extract()
  
         if products:
-            pass
-            # for product in products:
-            #     detail = product.css('a.thumbnail::attr(href)').extract_first()
+            for product in products:
+                detail = product.css('div.plp-pod__image a::attr(href)').extract_first()                
+                detail = 'http://www.homedepot.com'+detail
+                if not detail in self.excludes:
+                    category = response.url.split('http://www.homedepot.com')[1]
+                    request = scrapy.Request(detail, callback=self.detail)
+                    request.meta['category'] = category
+                    yield request
 
-            #     if detail:
-            #         url_id = self.get_url_id(detail)
+            # for other pages / pagination
+            offset = response.meta.get('offset', 0)
+            total_records = response.meta.get('total_records', self.get_total_records(response))
+            
+            if offset + 24 < total_records:
+                offset += 24
+                base_url = response.url.split('?')[0]
+                next_url = base_url+'?Nao={}'.format(offset)
+                request = scrapy.Request(next_url, callback=self.parse)
+                request.meta['offset'] = offset
+                request.meta['total_records'] = total_records
+                yield request
 
-            #         if self.task.mode == 1 or self.task.mode == 2 and str(url_id) in self.products:
-            #             price = product.css('div.price::text').extract_first()
-            #             rating = product.xpath(".//meta[@itemprop='ratingValue']/@content").extract_first()
-            #             reviewCount = product.xpath(".//meta[@itemprop='reviewCount']/@content").extract_first()
-            #             promo = product.css('p.promo::text').extract_first()
-            #             category = response.url[23:-5]
-
-            #             request = scrapy.Request(detail, callback=self.detail)
-            #             request.meta['price'] = price
-            #             request.meta['rating'] = rating
-            #             request.meta['promo'] = promo
-            #             request.meta['category'] = category
-            #             request.meta['reviewCount'] = reviewCount
-            #             yield request
         elif cates_url:
             parent = response.meta['category']
             for item in zip(cates_url, cates_title):
@@ -108,57 +121,59 @@ class HomedepotSpider(scrapy.Spider):
             return False        
         return cate_str.count("/")
 
+    def get_total_records(self, response):
+        total_records = response.css('div[id=allProdCount]::text').extract_first()
+        return int(total_records.replace(',', ''))
+
     def get_url_id(self, url):
-        url_id = re.search(r'.*\.product\.(\d+?)\.html', url)
-        return url_id.group(1)
+        return url
 
     def detail(self, response):
-        sel = Selector(response)
-        pid = response.url[-14:-5]
-        url = 'https://scontent.webcollage.net/homedepot/power-page?ird=true&channel-product-id=' + pid
+        # pid = response.url[-14:-5]
+        # url = 'https://scontent.webcollage.net/homedepot/power-page?ird=true&channel-product-id=' + pid
        
-        quantity = re.search(r'\s*"maxQty" : "(.+?)",',response.body)
-        quantity = quantity.group(1) if quantity else '0'
-        min_quantity = re.search(r'\s*"minQty" : "(.+?)",',response.body)
-        min_quantity = min_quantity.group(1) if min_quantity else '0'
+        # quantity = re.search(r'\s*"maxQty" : "(.+?)",',response.body)
+        quantity = 9999
+        # min_quantity = re.search(r'\s*"minQty" : "(.+?)",',response.body)
+        # min_quantity = min_quantity.group(1) if min_quantity else '0'
 
-        if int(quantity) == 9999:
-            quantity = self.get_real_quantity({
-                'ajaxFlag': True,
-                'actionType': sel.xpath("//input[@name='actionType']/@value").extract_first(),
-                'backURL': sel.xpath("//input[@name='backURL']/@value").extract_first(),
-                'catalogId': sel.xpath("//input[@name='catalogId']/@value").extract_first(),
-                'langId': sel.xpath("//input[@name='langId']/@value").extract_first(),
-                'storeId': sel.xpath("//input[@name='storeId']/@value").extract_first(),
-                'authToken': sel.xpath("//input[@name='authToken']/@value").extract_first(),
-                'productBeanId': sel.xpath("//input[@name='productBeanId']/@value").extract_first(),
-                'categoryId': sel.xpath("//input[@name='categoryId']/@value").extract_first(),
-                'catEntryId': sel.xpath("//input[@name='catEntryId']/@value").extract_first(),
-                'addedItem': sel.xpath("//input[@name='addedItem']/@value").extract_first(),
-                'catalogEntryId_1': sel.xpath("//input[@name='catEntryId']/@value").extract_first(),
-                'quantity': 9999,
-                'quantity_1': 9999
-            })
+        # if int(quantity) == 9999:
+        #     quantity = self.get_real_quantity({
+        #         'ajaxFlag': True,
+        #         'actionType': sel.xpath("//input[@name='actionType']/@value").extract_first(),
+        #         'backURL': sel.xpath("//input[@name='backURL']/@value").extract_first(),
+        #         'catalogId': sel.xpath("//input[@name='catalogId']/@value").extract_first(),
+        #         'langId': sel.xpath("//input[@name='langId']/@value").extract_first(),
+        #         'storeId': sel.xpath("//input[@name='storeId']/@value").extract_first(),
+        #         'authToken': sel.xpath("//input[@name='authToken']/@value").extract_first(),
+        #         'productBeanId': sel.xpath("//input[@name='productBeanId']/@value").extract_first(),
+        #         'categoryId': sel.xpath("//input[@name='categoryId']/@value").extract_first(),
+        #         'catEntryId': sel.xpath("//input[@name='catEntryId']/@value").extract_first(),
+        #         'addedItem': sel.xpath("//input[@name='addedItem']/@value").extract_first(),
+        #         'catalogEntryId_1': sel.xpath("//input[@name='catEntryId']/@value").extract_first(),
+        #         'quantity': 9999,
+        #         'quantity_1': 9999
+        #     })
 
-        des_key = response.css('div.product-info-specs li span::text').extract()
-        des_val = response.css('div.product-info-specs li::text').extract()
-        description = self.get_description(des_key, des_val)
-        special = sel.xpath("//div[@class='product-info-description']/div[contains(@style, 'text-align:center;')]/text()").extract_first()
+        # des_key = response.css('div.product-info-specs li span::text').extract()
+        # des_val = response.css('div.product-info-specs li::text').extract()
+        # description = self.get_description(des_key, des_val)
+        special = response.css('h2.modelNo::text').extract_first().replace('\n', '').strip()
 
         item = {
-            'id': response.css('p.item-number span::attr(data-sku)').extract_first(),
-            'title': response.css('h1::text').extract_first(),
-            'price': response.meta['price'],
-            'picture': sel.xpath("//img[@id='initialProductImage']/@src").extract_first(),
-            'rating': response.meta['rating'],
-            'review_count': response.meta['reviewCount'],
-            'promo': response.meta['promo'],
-            'category_id': response.meta['category'],
-            'delivery_time': response.css('p.primary-clause::text').extract_first(),
-            'bullet_points': '\n'.join(response.css('ul.pdp-features li::text').extract()),
-            'details': description,
+            'id': response.css('span[id=product_internet_number]::text').extract_first(),
+            'title': response.css('h1.product-title__title::text').extract_first(),
+            'price': '$'+response.css('input[id=ciItemPrice]::attr(value)').extract_first(),
+            'picture': response.xpath("//img[@id='mainImage']/@src").extract_first(),
+            'rating': response.css('span[itemprop=ratingValue]::text').extract_first() or 0,
+            'review_count': response.css('span[itemprop=reviewCount]::text').extract_first() or 0,
+            'promo': '',
+            'category_id': response.meta['category'].split('?')[0],
+            'delivery_time': '',
+            'bullet_points': '\n'.join(response.css('div.buybox li::text').extract()),
+            'details': 'description',
             'quantity': quantity,
-            'min_quantity': min_quantity,
+            'min_quantity': 1,
             'special': special,
             'url': self.get_url_id(response.url)
         }        
@@ -197,7 +212,7 @@ class HomedepotSpider(scrapy.Spider):
             'X-Requested-With':'XMLHttpRequest'        
         }
 
-        res = requests.post(url=url, headers=header, data=body)
+        res = requests.post(url=url, data=body)
         try:
             quantity_ = res.json()['orderErrMsgObj']['1']
         except Exception, e:
