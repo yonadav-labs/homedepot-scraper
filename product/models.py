@@ -31,8 +31,8 @@ class Product(models.Model):
 
 
 class Category(models.Model):    
-    url = models.CharField(max_length=100, primary_key=True)
-    title = models.CharField(max_length=100)
+    url = models.CharField(max_length=250, primary_key=True)
+    title = models.CharField(max_length=250)
     parent = models.ForeignKey('Category', null=True)
 
     def __unicode__(self):
