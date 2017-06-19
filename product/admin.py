@@ -46,15 +46,15 @@ class ScrapyTaskForm(forms.ModelForm):
                                           + "Category mode.")
         elif mode == 2:
             # validate product IDs or file
-            if products.strip():
-                products = products.replace('\n', ',')
-                for item in products.split(','):
-                    try:
-                        Product.objects.get(id=int(item))
-                    except Exception, e:
-                        raise forms.ValidationError("Products should be comma "
-                            + "seperated VALID product id list e.g) 12432, 12424, ...")
-            elif not self.cleaned_data.get('products_file'):
+            if not products.strip() and not self.cleaned_data.get('products_file'):
+            #     products = products.replace('\n', ',')
+            #     for item in products.split(','):
+            #         try:
+            #             Product.objects.get(id=int(item))
+            #         except Exception, e:
+            #             raise forms.ValidationError("Products should be comma "
+            #                 + "seperated VALID product id list e.g) 12432, 12424, ...")
+            # elif not self.cleaned_data.get('products_file'):
                 raise forms.ValidationError("Please provide a list of product IDs or a file")
 
         return self.cleaned_data

@@ -8,7 +8,7 @@ from django.conf import settings
 from django.core.validators import MinValueValidator
 
 class Product(models.Model):
-    id = models.IntegerField(primary_key=True)
+    id = models.CharField(primary_key=True, max_length=15)
     title = models.CharField(max_length=250)
     price = models.CharField(max_length=20)
     picture = models.CharField(max_length=250)

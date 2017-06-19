@@ -66,7 +66,7 @@ def export_products(request):
 
         response = HttpResponse(wrapper, content_type = content_type)
         response['Content-Length'] = os.path.getsize( path ) # not FileField instance
-        response['Content-Disposition'] = 'attachment; filename=%s/' % smart_str( os.path.basename( path ) ) # same here        
+        response['Content-Disposition'] = 'attachment; filename=%s' % smart_str( os.path.basename( path ) ) # same here        
         return response
     else:
         fields = [f.name for f in Product._meta.get_fields() 
@@ -129,4 +129,4 @@ def set_old_category_products(category):
 
 def get_ids(list_str):
     ids = list_str.replace('\n', ',')
-    return [int(item) for item in ids.split(',') if item]
+    return [item.strip() for item in ids.split(',') if item.strip()]
